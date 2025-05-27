@@ -70,6 +70,32 @@ def insert_wrk_decklists():
             )
         conn.commit()
 
+def insert_wrk_matches():
+    match_data = []
+    for file in os.listdir(output_directory):
+        with open(f"{output_directory}/{file}") as f:
+            tournament = json.load(f)
+            tournament_id = tournament['id']
+            for match in tournament['matches']:
+                results = match['match_results']
+                if len(results) == 2:
+                    player1 = results[0]
+                    player2 = results[1]
+                    match_data.append((
+                        tournament_id,
+                        player1['player_id'],
+                        int(player1['score']),
+                        player2['player_id'],
+                        int(player2['score']),
+                    ))
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                "INSERT INTO public.wrk_matches values (%s, %s, %s, %s, %s)",
+                match_data
+            )
+        conn.commit()
+
 print("creating work tables")
 execute_sql_script("sql/00_create_wrk_tables.sql")
 
@@ -78,6 +104,9 @@ insert_wrk_tournaments()
 
 print("insert raw decklist data")
 insert_wrk_decklists()
+
+print("insert raw match data")
+insert_wrk_matches()
 
 print("construct card database")
 execute_sql_script("sql/01_dwh_cards.sql")

@@ -18,3 +18,12 @@ CREATE TABLE public.wrk_decklists (
   card_url varchar NULL,
   card_count int NULL
 );
+
+DROP TABLE IF EXISTS public.wrk_matches;
+CREATE TABLE public.wrk_matches (
+  tournament_id varchar NULL,
+  player_id_1 varchar NULL,
+  matches_score_1 int NULL,
+  player_id_2 varchar NULL,
+  matches_score_2 int NULL
+);
