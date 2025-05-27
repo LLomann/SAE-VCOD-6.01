@@ -188,42 +188,38 @@ def extract_decklist(decklist: BeautifulSoup) -> list[DeckListItem]:
 
 # Extract a beautiful soup object from a url
 async def async_soup_from_url(session: aiohttp.ClientSession, sem: asyncio.Semaphore, url: str, use_cache: bool = True):
-  
-  if url is None:
-    return None
-  
-  # Construct cache filename
-  cache_filename = "cache" + url
-  cache_filename = ''.join(x for x in cache_filename if (x == "/" or x.isalnum()))
-  cache_filename = f"{cache_filename}.html"
-  
-  html = ""
+    if url is None:
+        return None
 
-  if use_cache and os.path.isfile(cache_filename):
-    # print(f"url {url} is in cache")
-    async with sem:
-      async with aiofile.async_open(cache_filename, "r") as file:
-        html = await file.read()
-  else:
-#______________________________pour réseau domestique_______________________________________________________
-    # print(f"url {url} is not in cache, requesting from source")
-    async with session.get(url) as resp:
-      html = await resp.text()
+    # Get the base directory of the script
+    base_dir = Path(__file__).resolve().parent
+    cache_dir = base_dir / "cache"
 
-    # timeout = aiohttp.ClientTimeout(total=30)  # 30 secondes
-    # async with session.get(url, timeout=timeout) as resp:
-      # html = await resp.text()
-#_____________________________________________________________________________________
+    # Make sure the cache directory exists
+    cache_dir.mkdir(exist_ok=True)
 
-    directory = os.path.dirname(cache_filename)
-    if not os.path.exists(directory):
-      os.makedirs(directory)
-    
-    async with sem:
-      async with aiofile.async_open(cache_filename, "w") as file:
-        await file.write(html)
+    # Construct a safe cache filename
+    safe_filename = ''.join(x for x in url if x.isalnum() or x == '/')
+    cache_filename = cache_dir / f"cache{safe_filename}.html"
 
-  return BeautifulSoup(html, 'html.parser')
+    html = ""
+
+    if use_cache and cache_filename.is_file():
+        # Read from cache
+        async with sem:
+            async with aiofile.async_open(cache_filename, "r") as file:
+                html = await file.read()
+    else:
+        # Request from source
+        async with session.get(url) as resp:
+            html = await resp.text()
+
+        # Save to cache
+        async with sem:
+            async with aiofile.async_open(cache_filename, "w") as file:
+                await file.write(html)
+
+    return BeautifulSoup(html, 'html.parser')
 
 async def extract_players(
   session: aiohttp.ClientSession,
