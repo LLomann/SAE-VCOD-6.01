@@ -3,9 +3,12 @@ import os
 import json
 from datetime import datetime
 
-
-output_directory = "../data_collection/tournament"
-output_directory = os.path.join(os.path.dirname(__file__), output_directory)
+boosters_directory = "../data_collection/booster"
+boosters_directory = os.path.join(os.path.dirname(__file__), boosters_directory)
+cards_directory = "../data_collection/card"
+cards_directory = os.path.join(os.path.dirname(__file__), cards_directory)
+tournament_directory = "../data_collection/tournament"
+tournament_directory = os.path.join(os.path.dirname(__file__), tournament_directory)
 
 def get_connection():
     return psycopg. connect(
@@ -17,7 +20,7 @@ def get_connection():
     )
 
 def execute_sql_script(path: str):
-    full_path = os.path.join(os.path.dirname(__file__), path)  # 🔍 construit le chemin absolu
+    full_path = os.path.join(os.path.dirname(__file__), path)
     with get_connection() as conn:
         with conn.cursor() as cur:
             with open(full_path) as f:
@@ -26,8 +29,8 @@ def execute_sql_script(path: str):
 
 def insert_wrk_tournaments():
     tournament_data = []
-    for file in os.listdir(output_directory):
-        with open(f"{output_directory}/{file}") as f:
+    for file in os.listdir(tournament_directory):
+        with open(f"{tournament_directory}/{file}") as f:
             tournament = json.load(f)
             tournament_data.append((
                 tournament['id'], 
@@ -47,8 +50,8 @@ def insert_wrk_tournaments():
 
 def insert_wrk_decklists():
     decklist_data = []
-    for file in os.listdir(output_directory):
-        with open(f"{output_directory}/{file}") as f:
+    for file in os.listdir(tournament_directory):
+        with open(f"{tournament_directory}/{file}") as f:
             tournament = json.load(f)
             tournament_id = tournament['id']
             for player in tournament['players']:
@@ -72,8 +75,8 @@ def insert_wrk_decklists():
 
 def insert_wrk_matches():
     match_data = []
-    for file in os.listdir(output_directory):
-        with open(f"{output_directory}/{file}") as f:
+    for file in os.listdir(tournament_directory):
+        with open(f"{tournament_directory}/{file}") as f:
             tournament = json.load(f)
             tournament_id = tournament['id']
             for match in tournament['matches']:
@@ -96,6 +99,109 @@ def insert_wrk_matches():
             )
         conn.commit()
 
+
+def insert_wrk_boosters():
+    booster_data = []
+    for filename in os.listdir(boosters_directory):
+        if not filename.endswith(".json"):
+            continue
+        with open(os.path.join(boosters_directory, filename), encoding="utf-8") as f:
+            boosters = json.load(f)
+            for b in boosters:
+                raw_card_count = b.get('card_count')
+                try:
+                    card_count = int(raw_card_count) if raw_card_count is not None else None
+                except (ValueError, TypeError):
+                    card_count = None  # ou log l'erreur si tu veux savoir quoi filtrer
+
+                booster_data.append((
+                    b.get('code') or b.get('booster_id'),
+                    b.get('name') or b.get('booster_name'),
+                    datetime.strptime(b.get('release_date'), "%d %b %y").date() if b.get('release_date') else None,
+                    card_count,
+                    b.get('image_url')
+                ))
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO public.wrk_boosters (
+                    booster_id, booster_name, release_date, card_count, image_url
+                ) VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (booster_id) DO UPDATE 
+                    SET booster_name = EXCLUDED.booster_name,
+                        release_date = EXCLUDED.release_date,
+                        card_count = EXCLUDED.card_count,
+                        image_url = EXCLUDED.image_url
+                """,
+                booster_data
+            )
+        conn.commit()
+
+def insert_wrk_cards():
+    card_data = []
+    for filename in os.listdir(cards_directory):
+        if not filename.endswith(".json"):
+            continue
+        with open(os.path.join(cards_directory, filename), encoding="utf-8") as f:
+            cards = json.load(f)
+            # cards est une liste de cartes pour un booster
+            for c in cards:
+                card_data.append((
+                    c.get('booster'),
+                    c.get('number'),
+                    c.get('name'),
+                    c.get('type'),
+                    c.get('hp'),
+                    c.get('card_type'),
+                    c.get('evolution'),
+                    c.get('evolves_from'),
+                    c.get('ability'),
+                    c.get('ability_text'),
+                    c.get('attack_1'),
+                    c.get('attack_1_text'),
+                    c.get('attack_2'),
+                    c.get('attack_2_text'),
+                    c.get('weakness'),
+                    c.get('retreat'),
+                    c.get('rule'),
+                    c.get('image_url')
+                ))
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO public.wrk_cards (
+                    booster_id,
+                    card_number,
+                    card_name,
+                    card_pokemon_type,
+                    card_hp,
+                    card_type,
+                    card_evolution,
+                    card_evolves_from,
+                    card_ability,
+                    card_ability_label,
+                    card_attack_1,
+                    card_attack_1_label,
+                    card_attack_2,
+                    card_attack_2_label,
+                    card_weakness,
+                    card_retreat,
+                    card_rule,
+                    card_image_url
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING;
+                """,
+                card_data
+            )
+        conn.commit()
+
+
+
 print("creating work tables")
 execute_sql_script("sql/00_create_wrk_tables.sql")
 
@@ -107,6 +213,12 @@ insert_wrk_decklists()
 
 print("insert raw match data")
 insert_wrk_matches()
+
+print("insert raw boosters data")
+insert_wrk_boosters()
+
+print("insert raw cards data")
+insert_wrk_cards()
 
 print("construct card database")
 execute_sql_script("sql/01_dwh_cards.sql")
