@@ -539,7 +539,7 @@ def extract_cards_from_booster_html(soup: BeautifulSoup, booster_code: str) -> l
 
 async def scrape_cards_from_boosters(session: aiohttp.ClientSession, sem: asyncio.Semaphore, booster_sets: list[BoosterSet]):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(script_dir, "cards")
+    output_dir = os.path.join(script_dir, "card")
     os.makedirs(output_dir, exist_ok=True)
 
     for booster in booster_sets:
@@ -586,8 +586,7 @@ async def main():
     await scrape_booster_sets(session, sem)
     booster_sets = load_booster_sets()
     await scrape_cards_from_boosters(session, sem, booster_sets)
-
-    # await handle_tournament_list_page(session, sem, first_tournament_page)
+    await handle_tournament_list_page(session, sem, first_tournament_page)
 
   # async with aiohttp.ClientSession(base_url=base_url, connector=connector, proxy=proxy) as session:
   #   soup = await async_soup_from_url(session, sem, first_tournament_page, False)
