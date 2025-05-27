@@ -12,6 +12,7 @@ CREATE TABLE public.wrk_tournaments (
 --ALTER TABLE public.wrk_tournaments
 --ADD CONSTRAINT primary key (tournament_id);
 
+
 DROP TABLE IF EXISTS public.wrk_decklists;
 CREATE TABLE public.wrk_decklists (
   tournament_id varchar NULL,
@@ -30,12 +31,12 @@ DROP TABLE IF EXISTS public.wrk_matches;
 CREATE TABLE public.wrk_matches (
   tournament_id varchar NULL,
   player_id_1 varchar NULL,
-  player_1_key varchar NULL,
+  -- player_1_key varchar NULL,
   matches_score_1 int NULL,
   player_id_2 varchar NULL,
-  player_2_key varchar NULL,
+  -- player_2_key varchar NULL,
   matches_score_2 int NULL,
-  winner varchar NULL
+  -- winner varchar NULL
 );
 
 
