@@ -1,0 +1,123 @@
+-- Création de la table players et insertion des donnes
+DROP TABLE IF EXISTS public.players;
+create table public.players as 
+	select distinct player_id
+	from wrk_decklists
+;
+alter table players 
+add column player_key int generated always as identity;
+
+alter table players 
+rename column player_id to player_name;
+
+select * from players
+order by player_key desc;
+
+--à reprendre HS
+alter table wrk_decklists 
+add column player_key int generated always as identity;
+
+-- Decklist anonymisée
+select wd.tournament_id, 
+pl.player_key, 
+wd.card_type, 
+wd.card_name, 
+wd.card_url, 
+wd.card_count 
+from wrk_decklists wd
+inner join players pl on (wd.player_id = pl.player_id);
+
+-- Création de clés primaires
+ALTER TABLE public.wrk_tournaments
+ADD CONSTRAINT primary key (tournament_id);
+
+ALTER TABLE public.wrk_decklists
+ADD CONSTRAINT primary key (tournament_id, player_key);
+
+
+-- Création d'index
+CREATE INDEX idx_decklists_player_id ON wrk_decklists(player_id);
+
+
+-- Jointure player_key player_id
+-- Transfo des tables : remplace Player_ID -> Player_key
+alter table wrk_decklists
+add column player_key VARCHAR(255);
+
+update wrk_decklists wd
+set player_key = p.player_key
+from players p
+where wd.player_id = p.player_id;
+
+
+-- Ajout des colonnes player_1_key et player_2_key
+ALTER TABLE wrk_matches
+ADD COLUMN player_1_key VARCHAR(255),
+ADD COLUMN player_2_key VARCHAR(255),
+add column match_winner VARCHAR(255);
+
+-- Mise à jour de player_1_key
+UPDATE wrk_matches wm
+SET player_1_key = p.player_key
+FROM players p
+WHERE wm.player_id_1 = p.player_id;
+
+-- Mise à jour de player_2_key
+UPDATE wrk_matches wm
+SET player_2_key = p.player_key
+FROM players p
+WHERE wm.player_id_2 = p.player_id;
+
+
+
+-- Liste des decks (ensemble de 20 cartes)
+select * from wrk_decklists wd;
+
+-- Liste des tournois
+select * from wrk_tournaments wt;
+
+-- Liste des cartes
+select * from dwh_cards dc;
+
+select *,
+substring(card_name from '\(([^)]+)-\d+\)') as card_booster
+from dwh_cards dc;
+
+
+--Nb de carte par nom
+select card_name,
+count( card_name) as nb_apparition
+from wrk_decklists wd
+group by card_name;
+
+select * from wrk_decklists wd;
+
+-- Top 10 des meilleurs tournois
+
+-- Top 10 Pokemon par saison
+
+-- Nombre de tournois par organisateur
+select tournament_organizer, 
+count(tournament_organizer) as Nb_tournois
+from wrk_tournaments wt
+group by tournament_organizer
+order by Nb_tournois desc;
+
+-- Creéation d'une nouvelle clé
+select concat(wd.tournament_id, '-', wd.player_id) as Id_deck, 
+	wd.card_type, 
+	wd.card_name,
+	wd.card_url,
+	wd.card_count 
+from wrk_decklists wd;
+
+
+-- Creéation d'une nouvelle clé
+update wrk_decklists
+set id_deck = concat(tournament_id, '-', player_id);
+
+
+
+-- Flop 10 carte par saion
+
+-- Gagnant de chaque tournois (y a t'il des joueurs qui ont gagné plusieurs tournois ?)
