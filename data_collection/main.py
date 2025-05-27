@@ -46,6 +46,36 @@ class Tournament:
   players: list[Player]
   matches:list[Match]
 
+@dataclass
+class BoosterSet:
+    code: str
+    name: str
+    release_date: str
+    card_count: int
+    image_url: str
+
+@dataclass
+class Card:
+    booster: str
+    number: str
+    name: str
+    type: str
+    hp: str
+    card_type: str
+    evolution: str
+    evolves_from: str
+    ability: str
+    ability_text: str
+    attack_1: str
+    attack_1_text: str
+    attack_2: str
+    attack_2_text: str
+    weakness: str
+    retreat: str
+    rule: str
+    image_url: str
+
+
 # Extract the tr tags from a table, omiting the first header
 def extract_trs(soup: BeautifulSoup, table_class: str):
   trs = soup.find(class_=table_class).find_all("tr")
@@ -344,6 +374,200 @@ async def handle_tournament_list_page(session: aiohttp.ClientSession, sem: async
     await handle_tournament_list_page(session, sem, f"{first_tournament_page}&page={current_page+1}")
 # _________________________________________________________________________________________________________________
 
+
+def extract_booster_sets(soup: BeautifulSoup) -> list[BoosterSet]:
+    table = soup.find("table", class_="data-table sets-table striped")
+    if not table:
+        return []
+
+    sets = []
+    rows = table.find_all("tr")
+
+    for row in rows:
+        cols = row.find_all("td")
+        if not cols or len(cols) < 3:
+            continue  # skip headings or invalid rows
+
+        link = cols[0].find("a")
+        if not link:
+            continue
+
+        name = link.text.strip().split('\n')[0].strip()
+        code_span = link.find("span", class_="code")
+        code = code_span.text.strip() if code_span else ""
+
+        image = link.find("img", class_="set")
+        image_url = image["src"] if image else ""
+
+        release_date = cols[1].text.strip() if cols[1].text else ""
+        card_count = int(cols[2].text.strip())
+
+        sets.append(BoosterSet(
+            code=code,
+            name=name,
+            release_date=release_date,
+            card_count=card_count,
+            image_url=image_url
+        ))
+
+    return sets
+
+async def scrape_booster_sets(session: aiohttp.ClientSession, sem: asyncio.Semaphore):
+    url = "https://pocket.limitlesstcg.com/cards"
+
+    soup = await async_soup_from_url(session, sem, url, True)
+    sets = extract_booster_sets(soup)
+
+
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    BOOSTER_DIR = os.path.join(SCRIPT_DIR, "booster")
+    os.makedirs(BOOSTER_DIR, exist_ok=True)
+    output_path = os.path.join(BOOSTER_DIR, "booster_sets.json")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump([asdict(s) for s in sets], f, indent=2, ensure_ascii=False)
+    print(f"✅ {len(sets)} booster sets saved to {output_path}")
+
+def extract_cards_from_booster_html(soup: BeautifulSoup, booster_code: str) -> list[Card]:
+    cards = []
+    card_divs = soup.select("div.card-classic")
+
+    for card_div in card_divs:
+        # Nom, type, HP
+        title = card_div.select_one(".card-text-name")
+        name = title.text.strip() if title else ""
+
+        type_hp_text = card_div.select_one(".card-text-title")
+        type_, hp = "", ""
+        if type_hp_text:
+            txt = type_hp_text.get_text(" ", strip=True)
+            parts = [p.strip() for p in txt.split("-") if p.strip()]
+            if len(parts) >= 2:
+                type_ = parts[-2]
+                hp = parts[-1].replace("HP", "").strip()
+
+        # Card Type, Evolution, Evolves from
+        card_type_div = card_div.select_one(".card-text-type")
+        card_type = ""
+        evolution = ""
+        evolves_from = ""
+
+        if card_type_div:
+            # Récupérer texte avec saut de ligne
+            raw_text = card_type_div.get_text(separator="\n", strip=True)
+            lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
+
+            if len(lines) > 0:
+                card_type = lines[0]
+            if len(lines) > 1:
+                evolution = lines[1].lstrip("- ").strip()
+
+            evolves_link = card_type_div.select_one("a")
+            if evolves_link:
+                evolves_from = evolves_link.text.strip()
+
+        # Ability
+        ability = card_div.select_one(".card-text-ability-info")
+        ability_name = ability.get_text(" ", strip=True).replace("Ability:", "").strip() if ability else ""
+
+        ability_text = card_div.select_one(".card-text-ability-effect")
+        ability_text = ability_text.get_text(" ", strip=True) if ability_text else ""
+
+        # Attacks
+        attacks = card_div.select("div.card-text-attack")
+        attack_1 = attack_1_text = attack_2 = attack_2_text = ""
+        if len(attacks) > 0:
+            info1 = attacks[0].select_one(".card-text-attack-info")
+            text1 = attacks[0].select_one(".card-text-attack-effect")
+            attack_1 = info1.get_text(" ", strip=True) if info1 else ""
+            attack_1_text = text1.get_text(" ", strip=True) if text1 else ""
+        if len(attacks) > 1:
+            info2 = attacks[1].select_one(".card-text-attack-info")
+            text2 = attacks[1].select_one(".card-text-attack-effect")
+            attack_2 = info2.get_text(" ", strip=True) if info2 else ""
+            attack_2_text = text2.get_text(" ", strip=True) if text2 else ""
+
+        # Weakness / Retreat
+        weakness = retreat = ""
+        wrr_blocks = card_div.select("p.card-text-wrr")
+        if len(wrr_blocks) >= 1:
+            lines = wrr_blocks[0].get_text("\n", strip=True).split("\n")
+            for line in lines:
+                if "Weakness" in line:
+                    weakness = line.replace("Weakness:", "").strip()
+                if "Retreat" in line:
+                    retreat = line.replace("Retreat:", "").strip()
+
+        # Rule
+        rule = ""
+        if len(wrr_blocks) > 1:
+            rule = wrr_blocks[1].get_text(" ", strip=True)
+
+        # Card Number
+        number_text = card_div.select_one(".card-set-info")
+        number = number_text.text.strip().split("#")[-1] if number_text else ""
+
+        # Image URL
+        img = card_div.select_one("img.card")
+        image_url = img["src"] if img else ""
+
+        card = Card(
+            booster=booster_code,
+            number=number,
+            name=name,
+            type=type_,
+            hp=hp,
+            card_type=card_type,
+            evolution=evolution,
+            evolves_from=evolves_from,
+            ability=ability_name,
+            ability_text=ability_text,
+            attack_1=attack_1,
+            attack_1_text=attack_1_text,
+            attack_2=attack_2,
+            attack_2_text=attack_2_text,
+            weakness=weakness,
+            retreat=retreat,
+            rule=rule,
+            image_url=image_url
+        )
+
+        cards.append(card)
+
+    return cards
+
+
+async def scrape_cards_from_boosters(session: aiohttp.ClientSession, sem: asyncio.Semaphore, booster_sets: list[BoosterSet]):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(script_dir, "cards")
+    os.makedirs(output_dir, exist_ok=True)
+
+    for booster in booster_sets:
+        print(f"🔍 Scraping cards for booster {booster.code}")
+        url = f"https://pocket.limitlesstcg.com/cards/{booster.code}?display=compact"
+        soup = await async_soup_from_url(session, sem, url, use_cache=True)
+
+        cards = extract_cards_from_booster_html(soup, booster.code)
+        json_path = os.path.join(output_dir, f"{booster.code}.json")
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump([asdict(c) for c in cards], f, indent=2, ensure_ascii=False)
+
+        print(f" {len(cards)} cards saved to {json_path}")
+
+
+def load_booster_sets() -> list[BoosterSet]:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    booster_path = os.path.join(script_dir, "booster", "booster_sets.json")
+
+    if not os.path.exists(booster_path):
+        print(" Booster set file not found. Run scrape_booster_sets() first.")
+        return []
+
+    with open(booster_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        return [BoosterSet(**item) for item in data]
+
+
 async def main():
   # Limit number of concurent http calls
   connector = aiohttp.TCPConnector(limit=20)
@@ -357,8 +581,13 @@ async def main():
 
 # _________________________________________________________________________________________________________________
     # Pour commencer par la dernière page
-  async with aiohttp.ClientSession(base_url=base_url, connector=connector) as session:
-    await handle_tournament_list_page(session, sem, first_tournament_page)
+
+  async with aiohttp.ClientSession(base_url=base_url, connector=connector) as session: # ajout de proxy si il y a 
+    await scrape_booster_sets(session, sem)
+    booster_sets = load_booster_sets()
+    await scrape_cards_from_boosters(session, sem, booster_sets)
+
+    # await handle_tournament_list_page(session, sem, first_tournament_page)
 
   # async with aiohttp.ClientSession(base_url=base_url, connector=connector, proxy=proxy) as session:
   #   soup = await async_soup_from_url(session, sem, first_tournament_page, False)
@@ -367,4 +596,3 @@ async def main():
 # _________________________________________________________________________________________________________________
     
 asyncio.run(main())
-
