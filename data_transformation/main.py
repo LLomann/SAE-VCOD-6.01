@@ -9,14 +9,14 @@ cards_directory = "../data_collection/card"
 cards_directory = os.path.join(os.path.dirname(__file__), cards_directory)
 tournament_directory = "../data_collection/tournament"
 tournament_directory = os.path.join(os.path.dirname(__file__), tournament_directory)
- 
+
 def get_connection():
     return psycopg. connect(
         host="localhost",
-        port="5432",
+        port="5433",
         dbname="postgres",
         user="postgres",
-        password=""
+        password="Yepkam46"
     )
 
 def execute_sql_script(path: str):
@@ -40,9 +40,6 @@ def insert_wrk_tournaments():
                 tournament['format'], 
                 int(tournament['nb_players'])
             ))
-
-    tournament_data = tournament_data[:100000]
-
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -68,9 +65,6 @@ def insert_wrk_decklists():
                         card['url'],
                         int(card['count']),
                     ))
-
-    decklist_data = decklist_data[:100000]
-
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -97,9 +91,6 @@ def insert_wrk_matches():
                         player2['player_id'],
                         int(player2['score']),
                     ))
-
-    match_data = match_data[:100000]
-                
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -130,8 +121,6 @@ def insert_wrk_boosters():
                     card_count,
                     b.get('image_url')
                 ))
-
-    booster_data = booster_data[:100000]
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -179,8 +168,6 @@ def insert_wrk_cards():
                     c.get('rule'),
                     c.get('image_url')
                 ))
-
-    card_data = card_data[:100000]
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -233,9 +220,7 @@ insert_wrk_boosters()
 print("insert raw cards data")
 insert_wrk_cards()
 
-print("construct card database ")
+print("construct card database")
 execute_sql_script("sql/01_dwh_cards.sql")
-
-print("fin du traitement")
 
 

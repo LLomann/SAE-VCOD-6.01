@@ -89,7 +89,7 @@ def construct_standings_url(tournament_id: str):
   return f"/tournament/{tournament_id}/standings?players"
 
 def construct_pairings_url(tournament_id: str):
-  return f"/tournament/{tournament_id}/pairings"
+  return f"/tournament/{tournament_id}/pairings?players"
 
 def construct_decklist_url(tournament_id: str, player_id: str):
   return f"/tournament/{tournament_id}/player/{player_id}/decklist"
