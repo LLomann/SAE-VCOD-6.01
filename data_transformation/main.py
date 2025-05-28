@@ -13,10 +13,10 @@ tournament_directory = os.path.join(os.path.dirname(__file__), tournament_direct
 def get_connection():
     return psycopg. connect(
         host="localhost",
-        port="5433",
+        port="5432",
         dbname="postgres",
         user="postgres",
-        password="Yepkam46"
+        password=""
     )
 
 def execute_sql_script(path: str):
