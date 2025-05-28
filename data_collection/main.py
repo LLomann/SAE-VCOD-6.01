@@ -581,7 +581,7 @@ async def main():
 # _________________________________________________________________________________________________________________
     # Pour commencer par la dernière page
 
-  async with aiohttp.ClientSession(base_url=base_url, connector=connector) as session: # ajout de proxy si il y a 
+  async with aiohttp.ClientSession(base_url=base_url, connector=connector, proxy=proxy) as session: # ajout de proxy si il y a 
     await scrape_booster_sets(session, sem)
     booster_sets = load_booster_sets()
     await scrape_cards_from_boosters(session, sem, booster_sets)
