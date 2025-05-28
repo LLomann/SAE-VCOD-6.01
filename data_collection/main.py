@@ -6,6 +6,8 @@ import asyncio
 import os
 import json
 import re
+from pathlib import Path
+
 
 base_url = "https://play.limitlesstcg.com"
 headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36'}
@@ -191,30 +193,27 @@ async def async_soup_from_url(session: aiohttp.ClientSession, sem: asyncio.Semap
     if url is None:
         return None
 
-    # Get the base directory of the script
-    base_dir = Path(__file__).resolve().parent
-    cache_dir = base_dir / "cache"
+    # Répertoire du script courant
+    script_dir = Path(__file__).resolve().parent
+    cache_dir = script_dir / "cache"
 
-    # Make sure the cache directory exists
-    cache_dir.mkdir(exist_ok=True)
+    # Créer le dossier cache s'il n'existe pas
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # Construct a safe cache filename
-    safe_filename = ''.join(x for x in url if x.isalnum() or x == '/')
-    cache_filename = cache_dir / f"cache{safe_filename}.html"
+    # Nettoyer le nom de fichier
+    safe_filename = ''.join(x for x in url if x.isalnum() or x in ('-', '_'))
+    cache_filename = cache_dir / f"{safe_filename}.html"
 
     html = ""
 
     if use_cache and cache_filename.is_file():
-        # Read from cache
         async with sem:
             async with aiofile.async_open(cache_filename, "r") as file:
                 html = await file.read()
     else:
-        # Request from source
         async with session.get(url) as resp:
             html = await resp.text()
 
-        # Save to cache
         async with sem:
             async with aiofile.async_open(cache_filename, "w") as file:
                 await file.write(html)
@@ -294,7 +293,11 @@ async def handle_tournament_standings_page(
     tournament_format: str,
     tournament_nb_players: int):
   
-  tournament_file = f"tournament/{tournament_id}.json"
+  # Créer le dossier 'tournament' dans le répertoire courant du script
+  tournament_dir = Path(__file__).parent / "tournament"
+  tournament_dir.mkdir(exist_ok=True)
+
+  tournament_file = tournament_dir / f"{tournament_id}.json"
   
   print(f"extracting tournament {tournament_id}", end="... ")
 
