@@ -1,7 +1,7 @@
 -- public.tournaments definition
 DROP TABLE IF EXISTS public.wrk_tournaments;
 CREATE TABLE public.wrk_tournaments (
-  tournament_id varchar NULL,
+  tournament_id VARCHAR PRIMARY KEY,
   tournament_name varchar NULL,
   tournament_date timestamp NULL,
   tournament_organizer varchar NULL,
@@ -15,12 +15,12 @@ CREATE TABLE public.wrk_tournaments (
 DROP TABLE IF EXISTS public.wrk_decklists;
 CREATE TABLE public.wrk_decklists (
   tournament_id varchar NULL,
-  -- player_key varchar NULL,
   player_id varchar NULL,
   card_type varchar NULL,
   card_name varchar NULL,
   card_url varchar NULL,
   card_count int NULL
+  -- PRIMARY KEY (tournament_id, player_id)
 );
 
 --ALTER TABLE public.wrk_decklists
@@ -30,11 +30,10 @@ DROP TABLE IF EXISTS public.wrk_matches;
 CREATE TABLE public.wrk_matches (
   tournament_id varchar NULL,
   player_id_1 varchar NULL,
-  -- player_1_key varchar NULL,
   matches_score_1 int NULL,
   player_id_2 varchar NULL,
-  -- player_2_key varchar NULL,
   matches_score_2 int NULL
+  --PRIMARY KEY (tournament_id, player_id_1, player_id_2)
   -- winner varchar NULL
 );
 
@@ -69,5 +68,6 @@ CREATE TABLE public.wrk_cards (
   card_weakness VARCHAR NULL,
   card_retreat VARCHAR NULL,
   card_rule TEXT NULL,
-  card_image_url TEXT NULL
+  card_image_url TEXT NULL,
+  PRIMARY KEY (booster_id, card_number)
 );

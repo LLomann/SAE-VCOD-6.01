@@ -40,6 +40,9 @@ def insert_wrk_tournaments():
                 tournament['format'], 
                 int(tournament['nb_players'])
             ))
+
+    tournament_data = tournament_data[:100000]  # Limiting to 100,000 entries for performance reasons
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -65,6 +68,9 @@ def insert_wrk_decklists():
                         card['url'],
                         int(card['count']),
                     ))
+
+    decklist_data = decklist_data[:100000]
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -91,6 +97,9 @@ def insert_wrk_matches():
                         player2['player_id'],
                         int(player2['score']),
                     ))
+
+    match_data = match_data[:100000]
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -121,6 +130,8 @@ def insert_wrk_boosters():
                     card_count,
                     b.get('image_url')
                 ))
+
+    booster_data = booster_data[:100000]  # Limiting to 100,000 entries for performance reasons
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -168,6 +179,8 @@ def insert_wrk_cards():
                     c.get('rule'),
                     c.get('image_url')
                 ))
+
+    card_data = card_data[:100000]
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -223,4 +236,11 @@ insert_wrk_cards()
 print("construct card database")
 execute_sql_script("sql/01_dwh_cards.sql")
 
+print("modify decklist booster card database")
+execute_sql_script("sql/02_modif_decklist.sql")
 
+print("modify decklist winner database")
+execute_sql_script("sql/03_add_winner_decklist.sql")
+
+print("modify decklist name database")
+execute_sql_script("sql/04_created_deck_name.sql")
